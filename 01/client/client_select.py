@@ -15,7 +15,7 @@ def connect_to_socket(HOST, PORT):
         print(f"Unable to connect to {HOST}:{PORT}")
         sys.exit(0)
 
-def get_string_between(str, sep1, sep2):
+def get_header(str, sep1, sep2):
     result = ""
     try:
         result = str.split(sep1)[1].split(sep2)[0]
@@ -39,8 +39,8 @@ try:
                 # read the header message
                 received_header = client_socket.recv(BUFFER_SIZE)
                 received_header = received_header.decode('utf-8')
-                recv_filename = get_string_between(received_header, "file-name: ", "\n")
-                recv_filesize = int(get_string_between(received_header, "file-size: ", "\n"))
+                recv_filename = get_header(received_header, "file-name: ", "\n")
+                recv_filesize = int(get_header(received_header, "file-size: ", "\n"))
                 
                 print(f"We got header ::\nFile Name : {recv_filename}\nFile Size: {recv_filesize}")
                 #read the file content

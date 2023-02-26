@@ -6,7 +6,7 @@ from os import path
 
 BUFFER_SIZE = 1024
 HOST = "localhost"
-PORT = 12345
+PORT = 9999
 
 server_address = (HOST, PORT)
 print(f"[+] Listening from {HOST}:{PORT}")
