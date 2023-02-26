@@ -6,7 +6,7 @@ from os import path
 
 BUFFER_SIZE = 1024
 HOST = "localhost"
-PORT = 5000
+PORT = 12345
 
 server_address = (HOST, PORT)
 print(f"[+] Listening from {HOST}:{PORT}")
@@ -63,7 +63,7 @@ try:
                                 # send to client
                                 sock.sendall(bytes_read)
                     else:
-                        sock.send(bytes("filenya gaada bos\n", 'utf-8'))
+                        sock.send(bytes("file not found\n", 'utf-8'))
                 elif data_split[0] == "REQUEST::DISCONNECT":
                     print(f"[-] Client {sock.getpeername()} just disconnected.")
                     sock.close()
