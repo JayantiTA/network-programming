@@ -35,9 +35,9 @@ try:
                 if data_split[0] == "download":
                     # check if file exist
                     filename = data.decode().split("download ")[1].rstrip()
-                    if path.exists(f"files/files/{filename}"):
-                        sock.send(bytes("CONFIRMATION::FILE_EXIST\n", 'utf-8'))                        
-                        filesize = os.path.getsize(f"files/files/{filename}")
+                    if path.exists(f"files/{filename}"):
+                        sock.send(bytes("file_exist\n", 'utf-8'))                        
+                        filesize = os.path.getsize(f"files/{filename}")
 
                         # initiate headers
                         header = f"file-name: {filename}\n"
@@ -47,7 +47,7 @@ try:
 
                         # start sending the file
                         total_data_sent = 0
-                        with open(f"files/files/{filename}", "rb") as f:
+                        with open(f"files/{filename}", "rb") as f:
                             while True:
                                 # read the bytes from the file
                                 bytes_read = f.read(BUFFER_SIZE)
@@ -64,7 +64,7 @@ try:
                                 sock.sendall(bytes_read)
                     else:
                         sock.send(bytes("file not found\n", 'utf-8'))
-                elif data_split[0] == "REQUEST::DISCONNECT":
+                elif data_split[0] == "DISCONNECT":
                     print(f"[-] Client {sock.getpeername()} just disconnected.")
                     sock.close()
                     input_socket.remove(sock)

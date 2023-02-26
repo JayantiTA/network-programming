@@ -3,13 +3,17 @@ import sys
 import os
 
 def connect_to_socket(HOST, PORT):
-    server_address = (HOST, PORT)
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print(f"[+] Connecting to {HOST}:{PORT}")
-    client_socket.connect(server_address)
-    print("[+] Connected.")
-    print("[command] >> ")
-    return client_socket
+    try:
+        server_address = (HOST, PORT)
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print(f"Connecting to {HOST}:{PORT}")
+        client_socket.connect(server_address)
+        print(" Connected.")
+        print("[command] >> ")
+        return client_socket
+    except:
+        print(f"Unable to connect to {HOST}:{PORT}")
+        sys.exit(0)
 
 def get_string_between(str, sep1, sep2):
     result = ""
@@ -31,7 +35,7 @@ try:
         received_data = client_socket.recv(BUFFER_SIZE).decode('utf-8')
         if message.split(" ")[0] == "download":
             # check the confirmation is the file exist
-            if received_data == "CONFIRMATION::FILE_EXIST\n":
+            if received_data == "file_exist\n":
                 # read the header message
                 received_header = client_socket.recv(BUFFER_SIZE)
                 received_header = received_header.decode('utf-8')
@@ -62,7 +66,7 @@ try:
                 sys.stdout.write(f"[RECV] << {received_data}[command] >> ")
         #special handling for exit
         elif f"{message.rstrip()} ".split(" ")[0] == "exit":
-            client_socket.send(bytes("REQUEST::DISCONNECT", 'utf-8'))
+            client_socket.send(bytes("DISCONNECT", 'utf-8'))
             client_socket.close()
             sys.stdout.write(f"[!] Bye")
             break
