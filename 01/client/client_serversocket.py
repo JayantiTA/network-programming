@@ -1,40 +1,49 @@
 import socket
 
-HOST, PORT = "localhost", 9999
-print("Masukkan command 'download' dan nama file:\n")
+BUFFER_SIZE = 1024
 
-while True:
-    command = input()
-    list_command = command.split(' ')
+def receive_file(client_sock, file_name):
+    with open(file_name, "wb") as file:
+        while True:
+            recv_data = client_sock.recv(BUFFER_SIZE)
+            if not recv_data:
+                print(f"{file_name} has been received successful!")
+                break
+            file.write(recv_data)
 
-    if (list_command[0] != 'download'):
-        print("command salah!")
-        continue
+def parse_header_to_dict(msg_header):
+    headers = {}
+    for line in msg_header.split("\n"):
+        if not line:
+            break
+        key, value = line.strip().split(": ")
+        headers[key] = value
+    return headers
 
-    # Create a socket (SOCK_STREAM means a TCP socket)
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        # Connect to server and send data
-        sock.connect((HOST, PORT))
-        sock.sendall(list_command[1].encode())
+def run_client():
+    host = "172.17.0.4" # host server (using docker)
+    port = 2410 # custom port
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_sock:
+        client_sock.connect((host, port))
 
-        data = sock.recv(1024)
+        # input the download command
+        command = input("Command (download file_name): ")
+        if not command:
+            return
 
-        # parsing pesan untuk mendapatkan isi file dan header
-        header_end = data.find(b"\n\n")
-        header = data[:header_end]
-        file_data = data[header_end+2:]
+        client_sock.send(command.encode())
+        recv_data = client_sock.recv(BUFFER_SIZE)
+        response = recv_data.decode()
+        if response.startswith("ERROR"):
+            print(response)
+            return
 
-        # parsing header untuk mendapatkan nama file dan ukuran file
-        header_lines = header.decode().split("\n")
-        file_name = header_lines[0].split(": ")[1]
-        file_size = int(header_lines[1].split(": ")[1])
+        msg_header, recv_data = response.split("\n\n", 1)
+        headers = parse_header_to_dict(msg_header)
+        file_name = headers["file-name"]
+        file_size = int(headers["file-size"])
+        print(f"Receiving {file_name} ({file_size} bytes)...")
+        receive_file(client_sock, file_name)
 
-        # tulis isi file ke dalam file baru
-        with open(file_name, "wb") as f:
-            f.write(file_data)
-
-        # tutup koneksi
-        sock.close()
-
-    print("Received: {}".format(file_name))
-    continue
+if __name__ == "__main__":
+    run_client()

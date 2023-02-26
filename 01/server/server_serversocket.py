@@ -1,43 +1,51 @@
-import socketserver
 import os
+import sys
+import socketserver
 
-# https://docs.python.org/3/library/socketserver.html
+BUFFER_SIZE = 1024
+FILE_DIRECTORY = "files/" # path to folder files
 
-class MyTCPHandler(socketserver.BaseRequestHandler):
-    """
-    The request handler class for our server.
-
-    It is instantiated once per connection to the server, and must
-    override the handle() method to implement communication to the
-    client.
-    """
-
+class FileTransferHandler(socketserver.BaseRequestHandler):
     def handle(self):
-        # self.request is the TCP socket connected to the client
-        self.data = self.request.recv(1024).decode()
-        if not self.data:
-            return
-        
-        file_name = self.data
-        if os.path.isfile("files/" + file_name):
-            # buka file yang diminta dan baca isinya
-            with open("files/" + file_name, "rb") as f:
-                file_data = f.read()
+        # handle reuse address
+        socketserver.TCPServer.allow_reuse_address = True
 
-            # tambahkan header pada pesan
-            header = f"file-name: {file_name}\nfile-size: {len(file_data)}\n\n"
-            message = header.encode() + file_data
-            # kirim pesan yang telah ditambahkan header ke klien
-            self.request.sendall(message)
-            print(f"File {file_name} berhasil dikirim ke {self.client_address[0]}:{self.client_address[1]}")
-        else:
-            self.request.sendall("File tidak ditemukan".encode())
+        print(f"Connected to {self.client_address}")
+
+        recv_data = self.request.recv(BUFFER_SIZE)
+        if not recv_data:
+            return
+
+        request = recv_data.decode().strip()
+        if not request.startswith("download"):
+            self.request.send("ERROR: Invalid command!\n".encode())
+
+        file_name = request.split()[1]
+        file_path = os.path.join(FILE_DIRECTORY, file_name)
+        if not os.path.exists(file_path):
+            self.request.send(f"ERROR: File {file_name} is not found\n".encode())
+
+        file_size = os.path.getsize(file_path)
+        msg_header = f"file-name: {file_name}\nfile-size: {file_size}\n\n\n"
+        with open(file_path, "rb") as file:
+            self.request.send(msg_header.encode())
+            while True:
+                if recv_data := file.read(BUFFER_SIZE):
+                    self.request.sendall(recv_data)
+                else:
+                    break
+        print(f"{file_name} has success sent to {self.client_address}")
+
+def run_server():
+    host = "" # all host can acceess the server
+    port = 2410 # custom port
+    with socketserver.TCPServer((host, port), FileTransferHandler) as server:
+        print(f"Server is running on {host}:{port}")
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            server.server_close()
+            sys.exit(0)
 
 if __name__ == "__main__":
-    HOST, PORT = "localhost", 9999
-
-    # Create the server, binding to localhost on port 9999
-    with socketserver.TCPServer((HOST, PORT), MyTCPHandler) as server:
-        # Activate the server; this will keep running until you
-        # interrupt the program with Ctrl-C
-        server.serve_forever()
+    run_server()
