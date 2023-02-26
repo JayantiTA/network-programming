@@ -5,7 +5,7 @@ import os
 from os import path
 
 BUFFER_SIZE = 1024
-HOST = "localhost"
+HOST = ""
 PORT = 9999
 
 server_address = (HOST, PORT)
@@ -42,7 +42,7 @@ try:
                         # initiate headers
                         header = f"file-name: {filename}\n"
                         header += f"file-size: {filesize}\n\n\n"
-                        
+
                         sock.send(bytes(header, 'utf-8'))
 
                         # start sending the file
@@ -76,7 +76,6 @@ try:
                         print(f"[-] Client {sock.getpeername()} just disconnected.")
                         sock.close()
                         input_socket.remove(sock)
-            
 
 except KeyboardInterrupt:
     server_socket.close()
