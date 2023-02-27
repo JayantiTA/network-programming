@@ -30,10 +30,13 @@ class FileTransferHandler(socketserver.BaseRequestHandler):
             msg_header = f"file-name: {file_name}\nfile-size: {file_size}\n\n\n"
             with open(file_path, "rb") as file:
                 self.request.send(msg_header.encode())
+                total_data_sent = 0
                 while True:
-                    if recv_data := file.read(BUFFER_SIZE):
-                        self.request.sendall(recv_data)
-                    else:
+                    data_sent = file.read(BUFFER_SIZE)
+                    self.request.sendall(data_sent)
+                    total_data_sent += len(data_sent)
+                    if file_size == total_data_sent:
+                        print(f"{file_name} has been received successful!")
                         break
             print(f"{file_name} has success sent to {self.client_address}")
 

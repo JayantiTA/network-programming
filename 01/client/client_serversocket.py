@@ -2,14 +2,16 @@ import socket
 
 BUFFER_SIZE = 1024
 
-def receive_file(client_sock, file_name):
+def receive_file(client_sock, file_name, file_size):
+    total_data_recv = 0
     with open(file_name, "wb") as file:
         while True:
-            recv_data = client_sock.recv(BUFFER_SIZE)
-            if not recv_data:
+            data_recv = client_sock.recv(BUFFER_SIZE)
+            file.write(data_recv)
+            total_data_recv += len(data_recv)
+            if file_size == total_data_recv:
                 print(f"{file_name} has been received successful!")
                 break
-            file.write(recv_data)
 
 def parse_header_to_dict(msg_header):
     headers = {}
@@ -27,23 +29,24 @@ def run_client():
         client_sock.connect((host, port))
 
         # input the download command
-        command = input("Command (download file_name): ")
-        if not command:
-            return
+        while True:
+            command = input("Command (download file_name): ")
+            if not command:
+                return
 
-        client_sock.send(command.encode())
-        recv_data = client_sock.recv(BUFFER_SIZE)
-        response = recv_data.decode()
-        if response.startswith("ERROR"):
-            print(response)
-            return
+            client_sock.send(command.encode())
+            data_recv = client_sock.recv(BUFFER_SIZE)
+            response = data_recv.decode()
+            if response.startswith("ERROR"):
+                print(response)
+                return
 
-        msg_header, recv_data = response.split("\n\n", 1)
-        headers = parse_header_to_dict(msg_header)
-        file_name = headers["file-name"]
-        file_size = int(headers["file-size"])
-        print(f"Receiving {file_name} ({file_size} bytes)...")
-        receive_file(client_sock, file_name)
+            msg_header, data_recv = response.split("\n\n", 1)
+            headers = parse_header_to_dict(msg_header)
+            file_name = headers["file-name"]
+            file_size = int(headers["file-size"])
+            print(f"Receiving {file_name} ({file_size} bytes)...")
+            receive_file(client_sock, file_name, file_size)
 
 if __name__ == "__main__":
     run_client()

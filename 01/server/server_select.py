@@ -55,13 +55,11 @@ try:
                                 #update the progress status
                                 print(f"[!] File transfer {filename} : {total_data_sent}B/{filesize}B ({int((total_data_sent/filesize)*100)}%)                 \r", end="")
 
-                                if not bytes_read:
-                                    print("[!] Transfer fle is done!")
-                                    # file transmitting is done
-                                    break
-
                                 # send to client
                                 sock.sendall(bytes_read)
+                                if filesize == total_data_sent:
+                                    print("[!] Transfer fle is done!")
+                                    break
                     else:
                         sock.send(bytes("file not found\n", 'utf-8'))
                 elif data_split[0] == "DISCONNECT":
