@@ -21,7 +21,7 @@ def parse_header_to_dict(msg_header):
     return headers
 
 def run_client():
-    host = "172.17.0.4" # host server (using docker)
+    host = "172.17.0.3" # host server (using docker)
     port = 2410 # custom port
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_sock:
         client_sock.connect((host, port))
