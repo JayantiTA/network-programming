@@ -70,12 +70,12 @@ def return_bytes(client, path_to_file):
         while True:
             # read the bytes from the file
             bytes_read = file.read()
-            total_bytes += bytes_read
+            total_bytes += len(bytes_read)
             if file_size == total_bytes:
                 break
 
             # send to client
-            client.sendall(bytes_read)
+        client.sendall(bytes_read)
 
 
 def load_config():
