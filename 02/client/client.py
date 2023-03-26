@@ -5,12 +5,11 @@ import logging
 import ssl
 import os
 from bs4 import BeautifulSoup
-from lxml import html, etree
 
 import gzip
 
 BUFFER_SIZE = 1024
-SERVER_HOST = "localhost"
+SERVER_HOST = "172.17.0.2"
 
 
 def create_socket(destination_address=SERVER_HOST, port=12000):
@@ -164,7 +163,7 @@ try:
         dest = input()
         request_headers = f"""
 GET /{dest} HTTP/1.1
-Host: localhost
+Host: {SERVER_HOST}
 User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36
 """
         headers, content = send_command(
