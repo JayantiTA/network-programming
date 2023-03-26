@@ -13,7 +13,7 @@ BUFFER_SIZE = 1024
 SERVER_HOST = "localhost"
 
 
-def create_socket(destination_address='localhost', port=12000):
+def create_socket(destination_address=SERVER_HOST, port=12000):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (destination_address, port)
@@ -26,7 +26,7 @@ def create_socket(destination_address='localhost', port=12000):
 
 def create_secure_socket(destination_address=SERVER_HOST, port=10000):
     try:
-        # https://curl.se/docs/caextract.html
+        # get it from https://curl.se/docs/caextract.html
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (destination_address, port)
         logging.warning(f"connecting to {server_address}")
@@ -40,7 +40,7 @@ def create_secure_socket(destination_address=SERVER_HOST, port=10000):
 
 
 def send_command(server, command_str, is_secure=False):
-    # Get Request Path
+    global BUFFER_SIZE
     request_path = command_str.split("\r\n")[0].split("GET")[
         1].split("HTTP")[0].strip()
     print("request_path", request_path)
@@ -58,7 +58,6 @@ def send_command(server, command_str, is_secure=False):
     server_address = server[0]
     server_port = server[1]
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # gunakan fungsi diatas
     if is_secure == True:
         sock = create_secure_socket(server_address, server_port)
     else:
@@ -71,7 +70,6 @@ def send_command(server, command_str, is_secure=False):
             # socket does not receive all data at once, data comes in part, need to be concatenated at the end of process
             data = sock.recv(BUFFER_SIZE)
             if data:
-                # Special handling for Downloadable Content
                 if "html" not in content_type:
                     bytes_received += len(data)
                     print(
@@ -98,7 +96,7 @@ def send_command(server, command_str, is_secure=False):
                         content_encoded = b"%b%b" % (content_encoded, data)
 
                 if "\r\n\r\n" in headers and not headers_complete:
-                    logging.warning("[!] HEADER COMPLETED")
+                    logging.warning("[+] HEADER COMPLETED")
                     print("[!] HEADERS:")
                     print(headers)
                     headers_complete = True
@@ -155,7 +153,6 @@ def create_request_headers(req_str):
     data += "\r\n"
     return data
 
-
 #
 # START
 #
@@ -166,12 +163,12 @@ try:
         print(f"[!] Where to?: http://{SERVER_HOST}/", end="")
         dest = input()
         request_headers = f"""
-            GET /{dest} HTTP/1.1
-            Host: 192.168.167.6
-            User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36
-            """
+GET /{dest} HTTP/1.1
+Host: localhost
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36
+"""
         headers, content = send_command(
-            ("127.0.0.1", 8000), create_request_headers(request_headers), False)
+            (SERVER_HOST, 8000), create_request_headers(request_headers), False)
         print("[!] HEADERS:")
         print(headers)
         soup = BeautifulSoup(content, "html.parser")

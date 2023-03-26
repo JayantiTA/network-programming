@@ -10,10 +10,17 @@ from _thread import *
 
 BUFFER_SIZE = 1024
 
-# Read httpserver.conf
+# read httpserver.conf
 CONFIG = {}
 ALIAS = {}
-MIME = {}
+
+# mime type that used in dataset and parent dir
+MIME = {
+    "html": "text/html",
+    "pdf": "application/pdf",
+    "txt": "text/plain",
+    "zip": "application/zip"
+}
 
 
 def creation_date(path_to_file):
@@ -74,7 +81,7 @@ def return_bytes(client, path_to_file):
             if file_size == total_bytes:
                 break
 
-            # send to client
+        # send to client
         client.sendall(bytes_read)
 
 
@@ -99,19 +106,6 @@ def load_config():
             a_from = line.split(" ")[1].replace('"', '')
             a_to = line.split(" ")[2].replace('"', '')
             ALIAS[a_from] = a_to
-    file.close()
-
-
-def load_mime():
-    global MIME
-    print("[!] READING MIME")
-
-    file = open("mime.csv", "r")
-    for line in file:
-        line = line.rstrip()
-        ext = line.split(";")[0]
-        mime_type = line.split(";")[1]
-        MIME[ext] = mime_type
     file.close()
 
 
@@ -211,7 +205,6 @@ def threaded_socket(client_connection):
 
 
 load_config()
-load_mime()
 
 # Define socket host and port
 SERVER_HOST = '0.0.0.0'
