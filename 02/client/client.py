@@ -1,6 +1,5 @@
 import sys
 import socket
-import json
 import logging
 import ssl
 import os
@@ -8,8 +7,8 @@ from bs4 import BeautifulSoup
 
 import gzip
 
-BUFFER_SIZE = 1024
-SERVER_HOST = "172.17.0.2"
+BUFFER_SIZE = 1024 * 10
+SERVER_HOST = "localhost"
 
 
 def create_socket(destination_address=SERVER_HOST, port=12000):
@@ -39,7 +38,6 @@ def create_secure_socket(destination_address=SERVER_HOST, port=10000):
 
 
 def send_command(server, command_str, is_secure=False):
-    global BUFFER_SIZE
     request_path = command_str.split("\r\n")[0].split("GET")[
         1].split("HTTP")[0].strip()
     print("request_path", request_path)
@@ -52,7 +50,6 @@ def send_command(server, command_str, is_secure=False):
     content_type = "text/html"
 
     bytes_received = 0
-    headers_complete = False
 
     server_address = server[0]
     server_port = server[1]
@@ -84,47 +81,34 @@ def send_command(server, command_str, is_secure=False):
                         break
                     continue
 
-                if not headers_complete:
-                    headers += data.decode()
-                else:
-                    bytes_received += 1
+                decoded_data = data.decode().split("\r\n\r\n")
+                headers += decoded_data[0] + "\r\n\r\n"
+                content += decoded_data[1]
 
-                    if content_encoding == "utf-8":
-                        content += data.decode()
-                    else:
-                        content_encoded = b"%b%b" % (content_encoded, data)
+                # read content-encoding and content-length
+                for head in headers.split("\r\n"):
+                    if "Content-Encoding:" in head:
+                        content_encoding = head.split(
+                            "Content-Encoding: ")[1]
+                    if "Content-Length:" in head:
+                        content_length = int(
+                            head.split("Content-Length: ")[1])
+                    if "Content-Type:" in head:
+                        content_type = head.split(
+                            "Content-Type: ")[1].strip()
 
-                if "\r\n\r\n" in headers and not headers_complete:
-                    logging.warning("[+] HEADER COMPLETED")
-                    print("[!] HEADERS:")
-                    print(headers)
-                    headers_complete = True
+                logging.warning(f"Content-Encoding: {content_encoding}")
+                logging.warning(f"Content-Length: {content_length}")
+                logging.warning(f"Content-Type: {content_type}")
 
-                    # read content-encoding and content-length
-                    for head in headers.split("\r\n"):
-                        if "Content-Encoding:" in head:
-                            content_encoding = head.split(
-                                "Content-Encoding: ")[1]
-                        if "Content-Length:" in head:
-                            content_length = int(
-                                head.split("Content-Length: ")[1])
-                        if "Content-Type:" in head:
-                            content_type = head.split(
-                                "Content-Type: ")[1].strip()
+                if "html" not in content_type:
+                    try:
+                        save_file_name = request_path.split("/")[-1]
+                        os.remove(save_file_name)
+                    except:
+                        None
 
-                    logging.warning(f"Content-Encoding: {content_encoding}")
-                    logging.warning(f"Content-Length: {content_length}")
-                    logging.warning(f"Content-Type: {content_type}")
-
-                    if "html" not in content_type:
-                        BUFFER_SIZE = 1024*10
-                        try:
-                            save_file_name = request_path.split("/")[-1]
-                            os.remove(save_file_name)
-                        except:
-                            None
-
-                if bytes_received == content_length:
+                if len(content) == content_length:
                     if content_encoding == "gzip":
                         content = gzip.decompress(content_encoded).decode()
                     elif content_encoding == "utf-8":
