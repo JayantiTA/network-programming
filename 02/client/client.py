@@ -82,7 +82,7 @@ def send_command(server, command_str, is_secure=False):
                     continue
 
                 decoded_data = data.decode().split("\r\n\r\n")
-                headers += decoded_data[0] + "\r\n\r\n"
+                headers += decoded_data[0]
                 content += decoded_data[1]
 
                 # read content-encoding and content-length
