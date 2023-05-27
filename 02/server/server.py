@@ -6,6 +6,8 @@ from pathlib import Path
 from datetime import datetime
 import time
 import platform
+import threading
+import select
 from _thread import *
 
 BUFFER_SIZE = 1024
@@ -109,94 +111,95 @@ def load_config():
     file.close()
 
 
-def threaded_socket(client_connection):
+def threaded_socket(client_socket):
     while True:
         client_request = ""
+        ready_to_read, _, _ = select.select([client_socket], [], [])
 
-        while True:
-            try:
-                request = client_connection.recv(BUFFER_SIZE).decode()
-                client_request += request
-                if "\r\n\r\n" in client_request:
-                    break
-            except Exception as ex:
-                None
-        print("[!] CLIENT REQUEST:")
-        print(client_request)
+        for sock in ready_to_read:
+            request = sock.recv(BUFFER_SIZE)
+            # if not request:
+            #     client_sockets.remove(sock)
+            #     sock.close()
+            if request:
+                client_request = request.decode()
+                print("[!] CLIENT REQUEST:")
+                print(client_request)
 
-        # Get Request Path
-        first_head = client_request.split("\r\n")[0].split(" ")
-        request_path = first_head[1]
+                # get request path
+                first_head = client_request.split("\r\n")[0].split(" ")
+                request_path = first_head[1]
 
-        # Check Path Alias
-        if request_path in ALIAS:
-            request_path = ALIAS[request_path]
+                # check path alias
+                if request_path in ALIAS:
+                    request_path = ALIAS[request_path]
 
-        absolute_path = CONFIG["SERVER_ROOT"] + request_path
-        print("[!] Absolute path:", absolute_path)
+                absolute_path = CONFIG["SERVER_ROOT"] + request_path
+                print("[!] Absolute path:", absolute_path)
 
-        # Check is path exist?
-        if exists(absolute_path):
-            if Path(absolute_path).is_file():
-                if absolute_path.split(".")[-1] == "html":
-                    # return html
-                    # read file content
-                    file = open(absolute_path, "r")
+                # check is path exist?
+                if exists(absolute_path):
+                    if Path(absolute_path).is_file():
+                        if absolute_path.split(".")[-1] == "html":
+                            # return html
+                            # read file content
+                            file = open(absolute_path, "r")
+                            html_text = file.read()
+                            file.close()
+                            return_html(sock,
+                                        "HTTP/1.1 200 OK", html_text)
+                        else:
+                            # return file bytes
+                            return_bytes(sock, absolute_path)
+                    else:
+                        # return directory listing as HTML file
+                        # get file list in path
+                        dir_list = os.listdir(absolute_path)
+                        directory_dom = ""
+                        for file in dir_list:
+                            # check file size and last modified
+                            last_modified = time.ctime(
+                                creation_date(f"{absolute_path}{file}"))
+
+                            if Path(f"{absolute_path}{file}").is_file():
+                                file_size = os.path.getsize(
+                                    f"{absolute_path}{file}")
+                                directory_dom += f"""
+                                <tr>
+                                    <td valign="top">[TXT]</td>
+                                    <td><a href="{file}">{file}</a></td>
+                                    <td align="right">{last_modified}</td>
+                                    <td align="right">{file_size} B</td><td>&nbsp;</td>
+                                </tr>
+                                """
+                                None
+                            else:
+                                directory_dom += f"""
+                                <tr>
+                                    <td valign="top">[DIR]</td>
+                                    <td><a href="{file}/">{file}/</a></td>
+                                    <td align="right">{last_modified}</td>
+                                    <td align="right">  - </td><td>&nbsp;</td>
+                                </tr>
+                                """
+
+                        file = open("directory.html", "r")
+                        html_text = file.read()
+                        file.close()
+
+                        html_text = html_text.replace(
+                            "==DIRECTORY_NAME==", request_path)
+                        html_text = html_text.replace(
+                            "==DIRECTORY_LIST==", directory_dom)
+                        return_html(sock,
+                                    "HTTP/1.1 200 OK", html_text)
+                else:
+                    # return 404 if file not found
+                    file = open(CONFIG["SERVER_ROOT"] + CONFIG["404"], "r")
                     html_text = file.read()
                     file.close()
-                    return_html(client_connection,
-                                "HTTP/1.1 200 OK", html_text)
-                else:
-                    # return file bytes
-                    return_bytes(client_connection, absolute_path)
-            else:
-                # return directory listing as HTML file
-                # get file list in path
-                dir_list = os.listdir(absolute_path)
-                directory_dom = ""
-                for file in dir_list:
-                    # check file size and last modified
-                    last_modified = time.ctime(
-                        creation_date(f"{absolute_path}{file}"))
-
-                    if Path(f"{absolute_path}{file}").is_file():
-                        file_size = os.path.getsize(f"{absolute_path}{file}")
-                        directory_dom += f"""
-                        <tr>
-                            <td valign="top">[TXT]</td>
-                            <td><a href="{file}">{file}</a></td>
-                            <td align="right">{last_modified}</td>
-                            <td align="right">{file_size} B</td><td>&nbsp;</td>
-                        </tr>
-                        """
-                        None
-                    else:
-                        directory_dom += f"""
-                        <tr>
-                            <td valign="top">[DIR]</td>
-                            <td><a href="{file}/">{file}/</a></td>
-                            <td align="right">{last_modified}</td>
-                            <td align="right">  - </td><td>&nbsp;</td>
-                        </tr>
-                        """
-
-                file = open("directory.html", "r")
-                html_text = file.read()
-                file.close()
-
-                html_text = html_text.replace(
-                    "==DIRECTORY_NAME==", request_path)
-                html_text = html_text.replace(
-                    "==DIRECTORY_LIST==", directory_dom)
-                return_html(client_connection, "HTTP/1.1 200 OK", html_text)
-        else:
-            # return 404 if file not found
-            file = open(CONFIG["SERVER_ROOT"] + CONFIG["404"], "r")
-            html_text = file.read()
-            file.close()
-            return_html(client_connection, "HTTP/1.1 404 Not Found", html_text)
-        # close connection
-        client_connection.close()
+                    return_html(sock,
+                                "HTTP/1.1 404 Not Found", html_text)
 
 
 #
@@ -218,14 +221,19 @@ server_socket.bind((SERVER_HOST, SERVER_PORT))
 server_socket.listen(5)
 print('[!] Listening on port %s ...' % SERVER_PORT)
 
+client_sockets = []
+
 try:
     while True:
         # Wait for client connections
-        client_connection, client_address = server_socket.accept()
+        client_socket, client_address = server_socket.accept()
         print(f"[+] New client {client_address} is connected.")
-        start_new_thread(threaded_socket, (client_connection, ))
+        client_sockets.append(client_socket)
+        client_thread = threading.Thread(
+            target=threaded_socket, args=(client_socket,))
         ThreadCount += 1
         print('[!] Thread Number: ' + str(ThreadCount))
+        client_thread.start()
 
 except KeyboardInterrupt:
     server_socket.close()
