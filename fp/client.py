@@ -1,28 +1,33 @@
 # importing the required libraries
 import pygame as pg
-import sys
-import time
 from pygame.locals import *
+import sys
 import socketio
+import time
 import logging as log
 
+# init socketio client
 sio = socketio.Client()
 
-room = {}
 
-
-def initiating_var():
+# initiate all the variables and window screen
+def initiate_var():
     # declaring the global variables
-    global XO, winner, draw, width, height, white, line_color, board, screen, initiating_window, x_img, o_img, fps, CLOCK, turn, send_turn, start_game, enemy_disconnected, drawed
+    global XO, winner, draw, board, turn, is_game_started, drawed, room # global variable for game
+    global width, height, white, line_color, screen, cover_window, x_img, o_img, fps, CLOCK # global variable for gui
 
+    # save the position that drawed on board
     drawed = set()
     # for storing the 'x' or 'o'
     # value as character
     XO = None
-    send_turn = False
     turn = None
-    start_game = False
-    enemy_disconnected = False
+
+    # to store the current room of the game
+    room = {}
+
+    # as a flag when the game is started
+    is_game_started = False
 
     # storing the winner's value at
     # any instant of code
@@ -67,20 +72,21 @@ def initiating_var():
     pg.display.set_caption("My Tic Tac Toe")
 
     # loading the images as python object
-    initiating_window = pg.image.load("modified_cover.png")
+    cover_window = pg.image.load("modified_cover.png")
     x_img = pg.image.load("X_modified.png")
     y_img = pg.image.load("o_modified.png")
 
     # resizing images
-    initiating_window = pg.transform.scale(initiating_window, (width, height + 100))
+    cover_window = pg.transform.scale(cover_window, (width, height + 100))
     x_img = pg.transform.scale(x_img, (80, 80))
     o_img = pg.transform.scale(y_img, (80, 80))
     display_message("Please wait...")
 
 
+# show the message before the game started
 def display_message(text_message):
-    global screen, initiating_window, width
-    screen.blit(initiating_window, (0, 0))
+    global screen, cover_window, width
+    screen.blit(cover_window, (0, 0))
     # displaying over the screen
     text = pg.font.Font(None, 30).render(text_message, 1, (0, 0, 0))
 
@@ -90,7 +96,8 @@ def display_message(text_message):
     screen.blit(text, text_rect)
 
 
-def game_initiating_window():
+# show the initiate window (base column for X and O)
+def initiate_game():
     # updating the display
     screen.fill(white)
     # drawing vertical lines
@@ -103,6 +110,7 @@ def game_initiating_window():
     draw_status()
 
 
+# show the status of the game (turn, winner, and draw)
 def draw_status():
     # getting the global variable draw
     # into action
@@ -112,8 +120,7 @@ def draw_status():
     if winner is None:
         message = turn.upper() + "'s Turn || Your role: " + XO.upper()
     else:
-        message = f"""{winner.upper()} won !
-        Click to play again"""
+        message = f"{winner.upper()} won ! || Click to play again"
         draw_win()
     if draw:
         message = "Game Draw !"
@@ -132,9 +139,9 @@ def draw_status():
     screen.blit(text, text_rect)
 
 
+# draw the line if there is a winner
 def draw_win():
     global board
-
     # checking for winning rows
     for row in range(0, 3):
         if (board[row][0] == board[row][1] == board[row][2]) and (
@@ -173,8 +180,9 @@ def draw_win():
         pg.draw.line(screen, (250, 70, 70), (350, 50), (50, 350), 4)
 
 
-def drawXO(row, col, send):
-    global board, turn, send_turn
+# draw X and O
+def draw_xo(row, col, send):
+    global board, turn
 
     # for the first row, the image
     # should be pasted at a x coordinate
@@ -221,33 +229,27 @@ def drawXO(row, col, send):
     drawed.add(tuple([row, col]))
 
 
-def user_click():
+def event_click():
     # get coordinates of mouse click
     x, y = pg.mouse.get_pos()
 
     # get column of mouse click (1-3)
     if x < width / 3:
         col = 1
-
     elif x < width / 3 * 2:
         col = 2
-
     elif x < width:
         col = 3
-
     else:
         col = None
 
     # get row of mouse click (1-3)
     if y < height / 3:
         row = 1
-
     elif y < height / 3 * 2:
         row = 2
-
     elif y < height:
         row = 3
-
     else:
         row = None
 
@@ -255,17 +257,8 @@ def user_click():
     # we need to draw the images at
     # the desired positions
     if row and col and board[row - 1][col - 1] is None:
-        # global turn
-        try:
-            drawXO(row, col, True)
-        except:
-            log.info("EXCEPTION DRAW XO")
-
-        try:
-            # check_win()
-            draw_status()
-        except:
-            log.info("EXCEPTION DRAW STATUS")
+        draw_xo(row, col, True)
+        draw_status()
 
 
 # Event handler for connecting to the server
@@ -274,38 +267,29 @@ def connect():
     print("Connected to server")
 
 
-def reset_game():
-    global XO, room, turn, board, winner, draw, send_turn, start_game
-    XO = None
-    room = None
-    turn = None
-    board = None
-    winner = None
-    draw = False
-    send_turn = False
-    start_game = False
-
-
 # Event handler for receiving messages
 @sio.on("message")
 def receive_message(data):
-    global start_game, enemy_disconnected
+    global is_game_started
     print("Received message:", data)
+
     if data["player"] == 2:
-        start_game = True
+        is_game_started = True
     elif "disconnected" not in data:
         display_message("Waiting for another player to join...")
-        start_game = False
-    
-    # if data["disconnected"]:
-    #     enemy_disconnected = True
+        is_game_started = False
+    elif "disconnected" in data and not winner and not draw:
+        display_message("Enemy disconnected || Click to restart")
+        is_game_started = False
 
+
+# Event handler for receiving role
 @sio.on("role")
 def receive_role(data):
     global XO, room, turn, board
-    XO = data["role"]
     print("role: ", XO)
-    # if data["room"] is not None:
+
+    XO = data["role"]
     room = data["room"]
     turn = room["turn"]
     board = room["board"]
@@ -314,77 +298,78 @@ def receive_role(data):
 # Event handler for receiving messages
 @sio.on("turn")
 def handle_turn(data):
-    print("Received message:", data)
     global XO, room, turn, board, winner, draw
+    print("Received message:", data)
+
     if data["room"] is not None:
         room = data["room"]
-        pos = room["turn_pos"]
-        drawXO(pos[0], pos[1], False)
+        current_position = room["turn_pos"]
+        draw_xo(current_position[0], current_position[1], False) # draw before set new turn
         board = room["board"]
         draw = room["draw"]
         winner = room["winner"]
         turn = room["turn"]
-
-        try:
-            draw_status()
-        except:
-            log.info("EXCEPTION DRAW STATUS")
+        draw_status()
 
 
-# initiating_var()
-
-# Connect to the server
-# sio.connect("http://localhost:8000")
-
-while True:
-    print("main loop")
-    initiating_var()
-    sio.connect("http://localhost:8000")
-    while True:
-        for event in pg.event.get():
-            if event.type == pg.QUIT:
-                sio.disconnect()
-                pg.quit()
-                pg.display.quit()
-                sys.exit()
-        pg.display.update()
-        CLOCK.tick(fps)
-        if start_game:
-            sio.emit("start_game")
-            time.sleep(2)
-            game_initiating_window()
-            break
-    # if turn is not None and XO == turn:
-    while start_game:
-        for event in pg.event.get():
-            if event.type == pg.QUIT:
-                sio.disconnect()
-                pg.quit()
-                pg.display.quit()
-                sys.exit()
-            elif event.type == pg.MOUSEBUTTONDOWN:
-                if turn is not XO:
-                    continue
-
-                if turn is not None and XO == turn:
-                    send_turn = False
-                    user_click()
-
-        pg.display.update()
-        CLOCK.tick(fps)
-        if winner or draw:
-            break
-    start_new_game = False
-    start_game = False
+# quit the game
+def quit_game():
     sio.disconnect()
-    while not start_new_game:
-        for event in pg.event.get():
-            if event.type == pg.QUIT:
-                pg.quit()
-                pg.display.quit()
-                sys.exit()
-            elif event.type == pg.MOUSEBUTTONDOWN:
-                start_new_game = True
+    pg.quit()
+    pg.display.quit()
+    sys.exit()
 
-        pg.display.update()
-        CLOCK.tick(fps)
+
+# start the game
+def start_game():
+    sio.emit("start_game")
+    time.sleep(2)
+    initiate_game()
+
+
+if __name__ == "__main__":
+    while True: # main game loop
+        print("main loop")
+        initiate_var()
+        # Connect to the server
+        sio.connect("http://localhost:8000")
+        while True: # waiting for another player
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    quit_game()
+            pg.display.update()
+            CLOCK.tick(fps)
+            if is_game_started:
+                start_game()
+                break
+
+        while is_game_started: # game loop
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    quit_game()
+                elif event.type == pg.MOUSEBUTTONDOWN:
+                    if turn is not XO:
+                        continue
+                    if turn is not None and XO == turn:
+                        event_click()
+
+            pg.display.update()
+            CLOCK.tick(fps)
+            if winner or draw:
+                break
+
+        is_new_game_started = False
+        is_game_started = False
+        sio.disconnect()
+
+        while not is_new_game_started: # game finished or enemy disconnected
+            for event in pg.event.get():
+                if event.type == pg.QUIT:
+                    pg.quit()
+                    pg.display.quit()
+                    sys.exit()
+                elif event.type == pg.MOUSEBUTTONDOWN:
+                    is_new_game_started = True
+
+            pg.display.update()
+            CLOCK.tick(fps)

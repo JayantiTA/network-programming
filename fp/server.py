@@ -7,25 +7,29 @@ app = socketio.WSGIApp(sio)
 
 rooms = []
 
-
+# Event handler for connected client
 @sio.on("connect")
 def connect(sid, environ):
     print("Client connected: ", sid)
+    # suto join room after connected
     join_room(sid)
 
 
+# Event handler for disconnected client
 @sio.on("disconnect")
 def disconnect(sid):
     print("Client disconnected:", sid)
-    # Check if the disconnected client is in any room
+    # check if the disconnected client is in any room
     leave_room(sid)
 
 
+# Event handler for starting the game
 @sio.on("start_game")
 def start_game(sid):
     for room in rooms:
-        if sid in room["player"] and room["status"] == "playing":
+        if sid in room["player"] and room["status"] == "playing": # check the player's room
             print("game started")
+            # send the role (X or O) for each client
             sio.emit(
                 "role",
                 {"role": "x", "room": room},
@@ -41,11 +45,11 @@ def start_game(sid):
             break
 
 
-# Event handler for joining a room
+# called when client is connected
 def join_room(sid):
     room = None
     for i in range(len(rooms)):
-        if len(rooms[i]["player"]) < 2:
+        if len(rooms[i]["player"]) < 2: # assign to the room that have < 2 player
             rooms[i]["player"].append(sid)
             if len(rooms[i]["player"]) == 2:
                 rooms[i]["status"] = "playing"
@@ -53,7 +57,7 @@ def join_room(sid):
             room = rooms[i]
             break
 
-    if room == None:
+    if room == None: # create new room if all rooms are full
         room = {
             "player": [sid],
             "board": [[None] * 3, [None] * 3, [None] * 3],
@@ -66,10 +70,10 @@ def join_room(sid):
         rooms.append(room)
         print("Room created:", room)
 
-    # Add the client to the specified room
+    # add the client to the specified room
     sio.enter_room(sid, rooms.index(room))
 
-    # Emit the updated client list to the room
+    # emit the updated client list to the room
     sio.emit(
         "message", {"sid": sid, "player": len(room["player"])}, room=rooms.index(room)
     )
@@ -77,8 +81,9 @@ def join_room(sid):
     print("Client", sid, "joined room", rooms.index(room), "room:", room)
 
 
+# called when client is disconnected
 def leave_room(sid):
-    # Check if the client is in the specified room
+    # check if the client is in the specified room
     for i in range(len(rooms)):
         if sid in rooms[i]["player"]:
             rooms[i]["player"].remove(sid)
@@ -93,7 +98,7 @@ def leave_room(sid):
             print("Client", sid, "removed from room", i)
             break
 
-
+# called when the game is over
 def reset_game(room):
     room["board"] = [[None] * 3, [None] * 3, [None] * 3]
     room["turn"] = "x"
@@ -104,6 +109,7 @@ def reset_game(room):
     return room
 
 
+# to check the winner or draw
 def check_win(room):
     board = room["board"]
 
@@ -151,14 +157,14 @@ def handle_turn(sid, data):
             rooms[i] = check_win(rooms[i])
             sid_idx = rooms[i]["player"].index(sid)
             rooms[i]["turn"] = "o" if rooms[i]["turn"] == "x" else "x"
-            if rooms[i]["winner"] or rooms[i]["draw"]:
+            if rooms[i]["winner"] or rooms[i]["draw"]: # send to all players if the game is over
                 sio.emit(
                     "turn",
                     {"room": rooms[i]},
                     room=i,
                 )
                 rooms[i] = reset_game(rooms[i])
-            else:
+            else: # send to enemy player
                 sio.emit(
                     "turn",
                     {"room": rooms[i]},
