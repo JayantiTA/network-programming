@@ -13,8 +13,9 @@ room = {}
 
 def initiating_var():
     # declaring the global variables
-    global XO, winner, draw, width, height, white, line_color, board, screen, initiating_window, x_img, o_img, fps, CLOCK, turn, send_turn, start_game, enemy_disconnected
+    global XO, winner, draw, width, height, white, line_color, board, screen, initiating_window, x_img, o_img, fps, CLOCK, turn, send_turn, start_game, enemy_disconnected, drawed
 
+    drawed = set()
     # for storing the 'x' or 'o'
     # value as character
     XO = None
@@ -172,7 +173,7 @@ def draw_win():
         pg.draw.line(screen, (250, 70, 70), (350, 50), (50, 350), 4)
 
 
-def drawXO(row, col):
+def drawXO(row, col, send):
     global board, turn, send_turn
 
     # for the first row, the image
@@ -201,39 +202,23 @@ def drawXO(row, col):
     if col == 3:
         posy = height / 3 * 2 + 30
 
-    print("turn", turn)
-    if turn == "x":
-        # pasting x_img over the screen
-        # at a coordinate position of
-        # (pos_y, posx) defined in the
-        # above code
-        screen.blit(x_img, (posy, posx))
+    if tuple([row, col]) in drawed:
+        return
 
+    if send:
+        sio.emit("turn", [row, col])
+
+        if XO == 'x':
+            screen.blit(x_img, (posy, posx))
+        else:
+            screen.blit(o_img, (posy, posx))
     else:
-        screen.blit(o_img, (posy, posx))
+        if XO == 'x':
+            screen.blit(o_img, (posy, posx))
+        else:
+            screen.blit(x_img, (posy, posx))
 
-    if turn is not None and turn == XO:
-        log.info("row: %s, col: %s", row, col)
-        if not send_turn:
-            sio.emit("turn", [row, col])
-            turn = "x" if turn == "o" else "o"
-            send_turn = True
-
-    # print(send_turn, XO)
-    # if not send_turn:
-    #     sio.emit("turn", [row, col])
-
-    #     if XO == 'x':
-    #         screen.blit(o_img, (posy, posx))
-    #     else:
-    #         screen.blit(x_img, (posy, posx))
-        
-    #     send_turn = True
-    # else:
-    #     if XO == 'x':
-    #         screen.blit(x_img, (posy, posx))
-    #     else:
-    #         screen.blit(o_img, (posy, posx))
+    drawed.add(tuple([row, col]))
 
 
 def user_click():
@@ -272,7 +257,7 @@ def user_click():
     if row and col and board[row - 1][col - 1] is None:
         # global turn
         try:
-            drawXO(row, col)
+            drawXO(row, col, True)
         except:
             log.info("EXCEPTION DRAW XO")
 
@@ -334,11 +319,8 @@ def handle_turn(data):
     if data["room"] is not None:
         room = data["room"]
         pos = room["turn_pos"]
-        if board[pos[0] - 1][pos[1] - 1] is None and winner != turn:
-            drawXO(pos[0], pos[1])
+        drawXO(pos[0], pos[1], False)
         board = room["board"]
-        # if not winner and not draw:
-        #     drawXO(pos[0], pos[1])
         draw = room["draw"]
         winner = room["winner"]
         turn = room["turn"]

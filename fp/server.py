@@ -150,6 +150,7 @@ def handle_turn(sid, data):
             rooms[i]["turn_pos"] = data
             rooms[i] = check_win(rooms[i])
             sid_idx = rooms[i]["player"].index(sid)
+            rooms[i]["turn"] = "o" if rooms[i]["turn"] == "x" else "x"
             if rooms[i]["winner"] or rooms[i]["draw"]:
                 sio.emit(
                     "turn",
@@ -158,7 +159,6 @@ def handle_turn(sid, data):
                 )
                 rooms[i] = reset_game(rooms[i])
             else:
-                rooms[i]["turn"] = "o" if rooms[i]["turn"] == "x" else "x"
                 sio.emit(
                     "turn",
                     {"room": rooms[i]},
