@@ -1,13 +1,17 @@
 # importing the required libraries
+import logging
 import pygame as pg
 from pygame.locals import *
 import sys
 import socketio
 import time
-import logging as log
+
 
 # init socketio client
 sio = socketio.Client()
+
+# set level logging
+logging.getLogger().setLevel(logging.INFO)
 
 
 # initiate all the variables and window screen
@@ -72,9 +76,9 @@ def initiate_var():
     pg.display.set_caption("My Tic Tac Toe")
 
     # loading the images as python object
-    cover_window = pg.image.load("modified_cover.png")
-    x_img = pg.image.load("X_modified.png")
-    y_img = pg.image.load("o_modified.png")
+    cover_window = pg.image.load("assets/modified_cover.png")
+    x_img = pg.image.load("assets/X_modified.png")
+    y_img = pg.image.load("assets/o_modified.png")
 
     # resizing images
     cover_window = pg.transform.scale(cover_window, (width, height + 100))
@@ -115,7 +119,6 @@ def draw_status():
     # getting the global variable draw
     # into action
     global draw, turn, XO, winner
-    print("winner: ", winner)
 
     if winner is None:
         message = turn.upper() + "'s Turn || Your role: " + XO.upper()
@@ -264,14 +267,14 @@ def event_click():
 # Event handler for connecting to the server
 @sio.on("connect")
 def connect():
-    print("Connected to server")
+    logging.warning("Connected to server")
 
 
 # Event handler for receiving messages
 @sio.on("message")
 def receive_message(data):
     global is_game_started
-    print("Received message:", data)
+    logging.info("Received message:", data)
 
     if data["player"] == 2:
         is_game_started = True
@@ -287,7 +290,7 @@ def receive_message(data):
 @sio.on("role")
 def receive_role(data):
     global XO, room, turn, board
-    print("role: ", XO)
+    logging.info("role: ", data["role"])
 
     XO = data["role"]
     room = data["room"]
@@ -299,7 +302,7 @@ def receive_role(data):
 @sio.on("turn")
 def handle_turn(data):
     global XO, room, turn, board, winner, draw
-    print("Received message:", data)
+    logging.info("Received message:", data)
 
     if data["room"] is not None:
         room = data["room"]
@@ -314,6 +317,7 @@ def handle_turn(data):
 
 # quit the game
 def quit_game():
+    logging.warning("Game exited")
     sio.disconnect()
     pg.quit()
     pg.display.quit()
@@ -322,6 +326,7 @@ def quit_game():
 
 # start the game
 def start_game():
+    logging.warning("Game started")
     sio.emit("start_game")
     time.sleep(2)
     initiate_game()
@@ -329,7 +334,6 @@ def start_game():
 
 if __name__ == "__main__":
     while True: # main game loop
-        print("main loop")
         initiate_var()
         # Connect to the server
         sio.connect("http://localhost:8000")

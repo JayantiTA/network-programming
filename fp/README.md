@@ -1,5 +1,10 @@
 ## Tic Tac Toe
 
+### Libraries used
+- python-socketio (socket library)
+- eventlet (run the app)
+- pygame (gui library)
+
 ### Install the requirements
 Preferred to use python 3.6 or above
 ```bash
