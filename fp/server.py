@@ -21,6 +21,26 @@ def disconnect(sid):
     leave_room(sid)
 
 
+@sio.on("start_game")
+def start_game(sid):
+    for room in rooms:
+        if sid in room["player"] and room["status"] == "playing":
+            print("game started")
+            sio.emit(
+                "role",
+                {"role": "x", "room": room},
+                room=rooms.index(room),
+                to=room["player"][0],
+            )
+            sio.emit(
+                "role",
+                {"role": "o", "room": room},
+                room=rooms.index(room),
+                to=room["player"][1],
+            )
+            break
+
+
 # Event handler for joining a room
 def join_room(sid):
     room = None
@@ -50,22 +70,11 @@ def join_room(sid):
     sio.enter_room(sid, rooms.index(room))
 
     # Emit the updated client list to the room
-    sio.emit("message", {"sid": sid}, room=rooms.index(room))
+    sio.emit(
+        "message", {"sid": sid, "player": len(room["player"])}, room=rooms.index(room)
+    )
 
     print("Client", sid, "joined room", rooms.index(room), "room:", room)
-    if room["status"] == "playing":
-        sio.emit(
-            "role",
-            {"role": "x", "room": room},
-            room=rooms.index(room),
-            to=room["player"][0],
-        )
-        sio.emit(
-            "role",
-            {"role": "o", "room": room},
-            room=rooms.index(room),
-            to=room["player"][1],
-        )
 
 
 def leave_room(sid):
@@ -78,7 +87,7 @@ def leave_room(sid):
             sio.leave_room(sid, i)
             sio.emit(
                 "message",
-                {"disconnected": sid},
+                {"disconnected": sid, "player": len(rooms[i]["player"])},
                 room=i,
             )
             print("Client", sid, "removed from room", i)
@@ -89,7 +98,9 @@ def reset_game(room):
     room["board"] = [[None] * 3, [None] * 3, [None] * 3]
     room["turn"] = "x"
     room["winner"] = None
+    room["draw"] = False
     room["status"] = "waiting"
+    room["turn_pos"] = []
     return room
 
 
@@ -121,26 +132,39 @@ def check_win(room):
         # game won diagonally right to left
         room["winner"] = board[0][2]
 
-    if room["winner"] is not None:
-        room["status"] = "finished"
-
     if all(all(row) for row in board) and room["winner"] is None:
         room["draw"] = True
+
+    if room["winner"] is not None or room["draw"]:
+        room["status"] = "finished"
     return room
 
 
 # Event handler for receiving and broadcasting messages
 @sio.on("turn")
 def handle_turn(sid, data):
+    print("turn", sid, data)
     for i in range(len(rooms)):
         if sid in rooms[i]["player"] and rooms[i]["status"] == "playing":
-            rooms[i]["board"][data[0]][data[1]] = rooms[i]["turn"]
-            rooms[i]["turn"] = "o" if rooms[i]["turn"] == "x" else "x"
+            rooms[i]["board"][data[0] - 1][data[1] - 1] = rooms[i]["turn"]
             rooms[i]["turn_pos"] = data
             rooms[i] = check_win(rooms[i])
-            sio.emit("turn", {"room": rooms[i]}, room=i)
-            if rooms[i]["winner"]:
+            sid_idx = rooms[i]["player"].index(sid)
+            if rooms[i]["winner"] or rooms[i]["draw"]:
+                sio.emit(
+                    "turn",
+                    {"room": rooms[i]},
+                    room=i,
+                )
                 rooms[i] = reset_game(rooms[i])
+            else:
+                rooms[i]["turn"] = "o" if rooms[i]["turn"] == "x" else "x"
+                sio.emit(
+                    "turn",
+                    {"room": rooms[i]},
+                    room=i,
+                    to=rooms[i]["player"][0 if sid_idx else 1],
+                )
             break
 
 
